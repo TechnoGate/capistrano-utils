@@ -149,4 +149,12 @@ exhaustive_list_of_files_to_link() {
       password: #{credentials[:password]}
     EOS
   end
+
+  def match_from_content(contents, method, part)
+    contents.
+      match(fetch "db_#{method}_#{part}_regex".to_sym).
+      try(:[], fetch("db_#{method}_#{part}_regex_match".to_sym)).
+      try(:chomp)
+  end
+
 end
