@@ -1,3 +1,4 @@
+require 'digest/sha1'
 require 'highline'
 
 unless Capistrano::Configuration.respond_to?(:instance)
@@ -14,8 +15,9 @@ Capistrano::Configuration.instance.load do
 
   # Taken from Stackoverflow
   # http://stackoverflow.com/questions/1661586/how-can-you-check-to-see-if-a-file-exists-on-the-remote-server-in-capistrano
-  def remote_file_exists?(full_path)
-    'true' ==  capture("if [ -e #{full_path} ]; then echo 'true'; fi").strip
+  def remote_file_exists?(full_path, options = {})
+    options[:via] = :sudo if options.delete(:use_sudo)
+    'true' ==  capture("test -e #{full_path}; if [ $? -eq 0 ]; then echo true; fi", options).strip
   end
 
   def link_file(source_file, destination_file)
@@ -95,25 +97,57 @@ exhaustive_list_of_files_to_link() {
   end
 
   def ask(what, options = {})
-    default = options[:default]
-    validate = options[:validate] || /(y(es)?)|(no?)|(a(bort)?|\n)/i
-    echo = (options[:echo].nil?) ? true : options[:echo]
+    options[:validate] = /(y(es)?)|(no?)|(a(bort)?|\n)/i unless options.key?(:validate)
+    options[:echo] = true if options[:echo].nil?
 
     ui = HighLine.new
     ui.ask("#{what}?  ") do |q|
       q.overwrite = false
-      q.default = default
-      q.validate = validate
+      q.default = options[:default]
+      q.validate = options[:validate]
       q.responses[:not_valid] = what
-      unless echo
-        q.echo = "*"
-      end
+      q.echo = "*" unless options[:echo]
     end
   end
 
   # Read a remote file
-  def read(file)
-    capture("cat #{file}")
+  def read(file, options = {})
+    options[:via] = :sudo if options.delete(:use_sudo)
+    capture("cat #{file}", options)
+  end
+
+  def write(content, path = nil, options = {})
+    random_file = random_tmp_file(path)
+    put content, random_file
+    return random_file if path.nil?
+
+    commands = <<-CMD
+      cp #{random_file} #{path}; \
+      rm -f #{random_file}
+    CMD
+
+    begin
+      if options[:use_sudo]
+        sudo commands
+      else
+        run commands
+      end
+    rescue Capistrano::CommandError
+      logger.important "Error uploading the file #{path}"
+      abort "Error uploading the file #{path}"
+    end
+  end
+
+  def generate_random_file_name(data = nil)
+    if data
+      "#{fetch :application}_#{Time.now.strftime('%d-%m-%Y_%H-%M-%S-%L')}_#{Digest::SHA1.hexdigest data}"
+    else
+      "#{fetch :application}_#{Time.now.strftime('%d-%m-%Y_%H-%M-%S-%L')}"
+    end
+  end
+
+  def random_tmp_file(data = nil)
+    "/tmp/#{generate_random_file_name data}"
   end
 
   # ask_for_confirmation(what)
@@ -150,10 +184,10 @@ exhaustive_list_of_files_to_link() {
     EOS
   end
 
-  def match_from_content(contents, method, part)
+  def match_from_content(contents, part)
     contents.
-      match(fetch "db_#{method}_#{part}_regex".to_sym).
-      try(:[], fetch("db_#{method}_#{part}_regex_match".to_sym)).
+      match(fetch "db_credentials_#{part}_regex".to_sym).
+      try(:[], fetch("db_credentials_#{part}_regex_match".to_sym)).
       try(:chomp)
   end
 
