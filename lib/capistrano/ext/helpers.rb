@@ -159,12 +159,13 @@ Capistrano::Configuration.instance(:must_exist).load do
     end
   end
 
-  def arguments
+  def arguments(required = true)
     index = ARGV.index(main_task) + 1
-    abort 'Too many arguments' if ARGV.size - 1 > index
-    abort 'Too few arguments'  if ARGV.size - 1 < index
-    task ARGV[index] { } # Defines a task by the argument name
-    ARGV[index]
+    abort 'Too few arguments'  if required && ARGV.size - 1 < index
+    ARGV[index..ARGV.size].each do |t|
+      # Defines a task by the argument name
+      task t do end
+    end
   end
 
   def exists_and_not_empty?(key)
