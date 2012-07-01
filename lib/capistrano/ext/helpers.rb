@@ -30,63 +30,50 @@ Capistrano::Configuration.instance(:must_exist).load do
     end
   end
 
-  # Return an array of arrays of files to link
-  #
-  # @param [String] Absolute path to folder from which to link
-  # @param [String] Absolute path to folder to which to link
-  # @return [Array]
-  def exhaustive_list_of_files_to_link(from, to)
+  # Deeply link files from a folder to another
+  def deep_link(from, to)
     script = <<-END
-exhaustive_list_of_files_to_link() {
-  files="";
+      exhaustive_list_of_files_to_link() {
+        files="";
 
-  for f in `ls -A1 ${1}`; do
-    file="${2}/${f}";
-    f="${1}/${f}";
-    if [ -e "${file}" ]; then
-      files="${files} `exhaustive_list_of_files_to_link ${f} ${file}`";
-    else
-      files="${files} ${f}:${file}";
-    fi;
-  done;
-  echo "${files}";
-};
+        for file in `ls -A1 ${1}`; do
+          dest_file="${2}/${file}";
+          file="${1}/${file}";
+          if [ -e "${dest_file}" ]; then
+            files="${files} `exhaustive_list_of_files_to_link ${file} ${dest_file}`";
+          else
+            files="${files} ${file}:${dest_file}";
+          fi;
+        done;
+        echo "${files}";
+      };
+
+      files=`exhaustive_list_of_files_to_link '#{from}' '#{to}'`;
+      for file in ${files}; do
+        ln -s "`echo "${file}" | cut -d: -f1`" \
+          "`echo "${file}" | cut -d: -f2`";
+      done;
     END
 
-    script << "exhaustive_list_of_files_to_link '#{from}' '#{to}';"
-
-    begin
-      files = capture(script).strip.split(' ')
-      files.map {|f| f.split(':')}
-    rescue Capistrano::CommandError
-      abort "Unable to get files list"
-    end
+    run script
   end
 
-  def link_files(path, files = {})
-    files.each do |f|
-      file_name = f.dup.gsub(/\//, '_')
-      unless remote_file_exists?("#{path}/#{file_name}")
-        begin
-          run <<-CMD
-            #{try_sudo} cp -a #{latest_release}/#{f} #{path}/#{file_name}
-          CMD
-        rescue Capistrano::CommandError
-          if remote_file_exists?("#{latest_release}/#{f}.default")
-            run <<-CMD
-              #{try_sudo} cp #{latest_release}/#{f}.default #{path}/#{file_name}
-            CMD
-          else
-            run <<-CMD
-              #{try_sudo} touch #{path}/#{file_name}
-            CMD
-            logger.info "WARNING: You should edit '#{path}/#{file_name}' or re-create it as a folder if that's your intention."
-          end
-        end
-      end
+  # Link all items
+  def link_items(from, to)
+    script = <<-END
+      symlink_all_shared_items() {
+        for file in `ls -A1 ${1}`; do
+          dest_file="${2}/`echo "${file}" | tr ',' '/'`";
+          file="${1}/${file}";
+          mkdir -p "`dirname "${dest_file}"`";
+          ln -nsf "${file}" "${dest_file}";
+        done;
+      };
 
-      link_file File.join(path, file_name), File.join(fetch(:latest_release), f)
-    end
+      symlink_all_shared_items '#{from}' '#{to}';
+    END
+
+    run script
   end
 
   def gen_pass( len = 8 )
