@@ -163,6 +163,22 @@ exhaustive_list_of_files_to_link() {
     end
   end
 
+  def arguments
+    index = ARGV.index(find_main_task) + 1
+    abort 'Too many arguments' if ARGV.size - 1 > index
+    abort 'Too few arguments'  if ARGV.size - 1 < index
+    task ARGV[index] { } # Defines a task by the argument name
+    ARGV[index]
+  end
+
+  def exists_and_not_empty?(key)
+    exists?(key) && fetch(key).present?
+  end
+
+  def find_main_task
+    task_call_frames.find { |t| ARGV.include? t.task.fully_qualified_name }.task.fully_qualified_name
+  end
+
   def find_and_execute_db_task(task)
     db_server_app = fetch :db_server_app
 
