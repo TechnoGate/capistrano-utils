@@ -191,7 +191,7 @@ exhaustive_list_of_files_to_link() {
   end
 
   def format_credentials(credentials)
-    <<-EOS.gsub(/\A\s+/, '')
+    <<-EOS.gsub(/^\s+/, '')
       adapter: #{fetch :db_server_app}
       hostname: #{credentials[:hostname]}
       port: #{credentials[:port]}
