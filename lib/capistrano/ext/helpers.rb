@@ -27,7 +27,11 @@ Capistrano::Configuration.instance(:must_exist).load do
   end
 
   def clean_folder(folder)
-    find_params = ["-name '._*'", "-name '*~'", "-name '*.tmp'", "-name '*.bak'"]
+    find_params = [
+      "-name '._*'", "-name '*~'", "-name '*.tmp'", "-name '*.bak'",
+      "-name 'Thumbs.db'", "-name '.DS_Store'",
+    ]
+
     commands = find_params.inject '' do |commands, find_param|
       commands << "#{try_sudo} find #{folder} #{find_param} -exec rm -f {} ';';"
     end
