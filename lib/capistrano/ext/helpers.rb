@@ -26,6 +26,15 @@ Capistrano::Configuration.instance(:must_exist).load do
     end
   end
 
+  def clean_folder(folder)
+    find_params = ["-name '._*'", "-name '*~'", "-name '*.tmp'", "-name '*.bak'"]
+    commands = find_params.inject '' do |commands, find_param|
+      commands << "#{try_sudo} find #{folder} #{find_param} -exec rm -f {} ';';"
+    end
+
+    run commands
+  end
+
   # Deeply link files from a folder to another
   def deep_link(from, to)
     script = <<-END
