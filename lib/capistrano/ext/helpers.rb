@@ -5,7 +5,7 @@ unless Capistrano::Configuration.respond_to?(:instance)
   abort 'capistrano/ext/helpers requires capistrano 2'
 end
 
-Capistrano::Configuration.instance.load do
+Capistrano::Configuration.instance(:must_exist).load do
   # Taken from the capistrano code.
   def _cset(name, *args, &block)
     unless exists?(name)
