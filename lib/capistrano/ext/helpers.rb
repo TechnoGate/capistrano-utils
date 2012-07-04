@@ -40,7 +40,7 @@ Capistrano::Configuration.instance(:must_exist).load do
   end
 
   # Deeply link files from a folder to another
-  def deep_link(from, to)
+  def deep_link(from, to, options = {})
     script = <<-END
       exhaustive_list_of_files_to_link() {
         files="";
@@ -48,7 +48,9 @@ Capistrano::Configuration.instance(:must_exist).load do
         for file in `ls -A1 ${1}`; do
           dest_file="${2}/${file}";
           file="${1}/${file}";
-          if [ -e "${dest_file}" ]; then
+          if [ "x${3}" != 'x' ]; then
+            files="${files} `exhaustive_list_of_files_to_link ${file} ${2}`";
+          elif [ -e "${dest_file}" ]; then
             files="${files} `exhaustive_list_of_files_to_link ${file} ${dest_file}`";
           else
             files="${files} ${file}:${dest_file}";
@@ -57,10 +59,12 @@ Capistrano::Configuration.instance(:must_exist).load do
         echo "${files}";
       };
 
-      files=`exhaustive_list_of_files_to_link '#{from}' '#{to}'`;
+      files=`exhaustive_list_of_files_to_link '#{from}' '#{to}' '#{options[:group] ? 'true' : nil}'`;
       for file in ${files}; do
-        ln -s "`echo "${file}" | cut -d: -f1`" \
-          "`echo "${file}" | cut -d: -f2`";
+        from="`echo "${file}" | cut -d: -f1`";
+        to="`echo "${file}" | cut -d: -f2`";
+        mkdir -p "`dirname ${from}`";
+        ln -s "${from}" "${to}";
       done;
     END
 
