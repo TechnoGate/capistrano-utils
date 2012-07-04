@@ -13,7 +13,7 @@ Gem::Specification.new do |gem|
   gem.test_files    = gem.files.grep(%r{^(test|spec|features)/})
   gem.name          = 'capistrano-utils'
   gem.require_paths = ['lib']
-  gem.version       = '0.0.8'
+  gem.version       = '0.0.9'
 
   gem.add_dependency 'rake'
   gem.add_dependency 'capistrano', '>= 2.12.0'
